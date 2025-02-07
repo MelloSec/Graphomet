@@ -4,7 +4,10 @@ param (
     [string]$GroupPrefix,
 
     [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
-    [string]$Intent
+    [string]$Intent,
+
+    [switch]$iOs,
+    [switch]$Windows
 )
 
 <#
@@ -58,7 +61,7 @@ param (
 .EXAMPLE
     To Assign Apps, provide a partial Group name and whether it should be "Available" or "required"
 
-    .\Assign-ManagedApps.ps1 -GroupPrefix "All Users" -Intent "Available"
+    .\Assign-ManagedApps.ps1 -iOs -GroupPrefix "All Users" -Intent "Available"
 #>
 
 #### Begin Setting Variables ####
@@ -259,9 +262,7 @@ $clientId = $plainClientId
 $tenantId = $plainTenantId
 $clientSecret = $plainClientSecret
 
-
-# Use the plain text values in your script
-Write-Host "Tenant ID: $TenantId"
+Write-Output "Acquiring Access Token for Graph"
 
 $body = @{
     grant_type    = "client_credentials"
@@ -289,10 +290,19 @@ Log-Message "Scopes: $($context.Scopes)"
 # Get the app(s) from Intune
 Log-Message "Getting Apps from Intune. Be patient, this can take a while."
 
-#  $Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | select DisplayName, Id | Sort-Object
-$Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | Where-Object { 
+if($iOs)
+    {
+    $Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | Where-Object { 
     $_.AdditionalProperties.'@odata.type' -in @("#microsoft.graph.webApp", "#microsoft.graph.managedIOSStoreApp", "#microsoft.graph.iosVppApp")
-} | Select-Object DisplayName, Id, AdditionalProperties | Sort-Object DisplayName
+    } | Select-Object DisplayName, Id, AdditionalProperties | Sort-Object DisplayName }
+    elseif($Windows)
+        $Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | Where-Object { 
+        $_.AdditionalProperties.'@odata.type' -in @("#microsoft.graph.win32LobApp", "#microsoft.graph.windowsUniversalAppX", "#microsoft.graph.microsoftStoreForBusinessApp")
+        } | Select-Object DisplayName, Id, AdditionalProperties | Sort-Object DisplayName
+    else {
+        $Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | Select-Object DisplayName, Id, AdditionalProperties | Sort-Object DisplayName
+    }
+    
 
 $selectedApps = $Apps | Out-GridView -PassThru -Title "Select App(s) You Want to Assign:" 
 $appIds = $selectedApps | select -ExpandProperty Id
@@ -466,12 +476,48 @@ if ($selectedChoice -eq 'Include') {
                     }
                 }
             }
+            "#microsoft.graph.win32LobApp" {
+                $bodyTemplate = @{
+                    target   = @{
+                        groupId       = $GroupId
+                        "@odata.type" = "#microsoft.graph.groupAssignmentTarget"
+                    }
+                    intent   = "$Intent"
+                    settings = @{
+                        "@odata.type" = "#microsoft.graph.win32LobAppAssignmentSettings"
+                    }
+                }
+            }
+            "#microsoft.graph.microsoftStoreForBusinessApp" {
+                $bodyTemplate = @{
+                    target   = @{
+                        groupId       = $GroupId
+                        "@odata.type" = "#microsoft.graph.groupAssignmentTarget"
+                    }
+                    intent   = "$Intent"
+                    settings = @{
+                        "@odata.type" = "#microsoft.graph.microsoftStoreForBusinessAppAssignmentSettings"
+                    }
+                }
+            }
+            "#microsoft.graph.windowsUniversalAppX" {
+                $bodyTemplate = @{
+                    target   = @{
+                        groupId       = $GroupId
+                        "@odata.type" = "#microsoft.graph.groupAssignmentTarget"
+                    }
+                    intent   = "$Intent"
+                    settings = @{
+                        "@odata.type" = "#microsoft.graph.windowsUniversalAppXAssignmentSettings"
+                    }
+                }
+            }
             default {
                 Log-Message "Unsupported app type: $odataType" "ERROR"
                 continue
             }
         }
-
+        
         # Convert the body template to JSON
         $jsonBody = $bodyTemplate | ConvertTo-Json -Depth 3
 
