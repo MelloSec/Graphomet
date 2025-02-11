@@ -256,6 +256,7 @@ $secureClientSecret = Read-Host "Enter Client Secret" -AsSecureString
 # Convert secure strings to plain text
 $plainClientId = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureClientId))
 $plainTenantId = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureTenantId))
+#$plainTenantID = $secureTenantId
 $plainClientSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureClientSecret))
 
 $clientId = $plainClientId
@@ -295,13 +296,14 @@ if($iOs)
     $Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | Where-Object { 
     $_.AdditionalProperties.'@odata.type' -in @("#microsoft.graph.webApp", "#microsoft.graph.managedIOSStoreApp", "#microsoft.graph.iosVppApp")
     } | Select-Object DisplayName, Id, AdditionalProperties | Sort-Object DisplayName }
-    elseif($Windows)
+    elseif($Windows){
         $Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | Where-Object { 
         $_.AdditionalProperties.'@odata.type' -in @("#microsoft.graph.win32LobApp", "#microsoft.graph.windowsUniversalAppX", "#microsoft.graph.microsoftStoreForBusinessApp")
         } | Select-Object DisplayName, Id, AdditionalProperties | Sort-Object DisplayName
     else {
         $Apps = Get-MgDeviceAppMgtMobileApp -ExpandProperty Assignments | Select-Object DisplayName, Id, AdditionalProperties | Sort-Object DisplayName
     }
+}
     
 
 $selectedApps = $Apps | Out-GridView -PassThru -Title "Select App(s) You Want to Assign:" 
