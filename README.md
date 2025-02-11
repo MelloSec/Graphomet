@@ -23,6 +23,9 @@ Use an app registration to with required permissions to Include/Exclude and depl
 ### IntuneManagement for export/import and OIB deployments
 
 ```powershell
+git clone https://github.com/Micke-K/IntuneManagement
+cd .\IntuneManagement
+
 $tenant = Read-Host -Prompt "Enter Tenant ID" -AsSecureString
 $appId = Read-Host -Prompt "Enter App ID" -AsSecureString
 $secret = Read-Host -Prompt "Enter Secret" -AsSecureString
