@@ -4,7 +4,10 @@ Param(
     [string]$UserFile,   # Path to CSV file with users
 
     [Parameter(Mandatory=$true)]
-    [string]$OutputFile  # Path to save results
+    [string]$OutputFile,  # Path to save results
+
+    [Parameter(Mandatory=$true)]
+    [string]$LogFile  # Path to save log
 )
 
 # Prompt for Client ID, Tenant ID, and Client Secret
@@ -38,6 +41,7 @@ $users = (Import-Csv -Path $UserFile).UserName
 
 # Initialize Hash Table to Store Output
 $hash = @{}
+$log = @()
 
 # Generate Temporary Access Pass (TAP) for Each User
 ForEach ($user in $users) {
@@ -49,13 +53,35 @@ ForEach ($user in $users) {
         $tap = $tapResponse.temporaryAccessPass
         $hash.add($user, $tap)
         Write-Output "TAP created for $user"
+        
+        # Log the TAP creation
+        $log += [PSCustomObject]@{
+            DateTime = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+            UserName = $user
+            Status = "Success"
+        }
     }
     Catch {
         Write-Output "Error creating TAP for $user"
+        
+        # Log the error
+        $log += [PSCustomObject]@{
+            DateTime = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+            UserName = $user
+            Status = "Error"
+        }
     }
 }
 
 # Save Results to CSV
 $hash.GetEnumerator() | Select-Object -Property @{N='User Name';E={$_.Key}}, @{N='Temporary Access Pass';E={$_.Value}} | Export-Csv -Path $OutputFile -NoTypeInformation
 
+# Append Log to CSV
+if (Test-Path $LogFile) {
+    $log | Export-Csv -Path $LogFile -NoTypeInformation -Append
+} else {
+    $log | Export-Csv -Path $LogFile -NoTypeInformation
+}
+
 Write-Output "Temporary Access Passes saved to $OutputFile"
+Write-Output "Log saved to $LogFile"
